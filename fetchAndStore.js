@@ -76,7 +76,7 @@ const fetchAndStoreHolders = async () => {
                     filter: { address: h.address },
                     update: { 
                         $set: { 
-                            balance: h.balance / (10 ** 9),
+                            balance: h.balance,
                         }
                     },
                     upsert: true,
