@@ -8,7 +8,7 @@ const app = express();
 const PX_ADDRESS = "EQB420yQsZobGcy0VYDfSKHpG2QQlw-j1f_tPu1J488I__PX";
 const API_LIMIT = 1000;
 const HOLDERS_API_ADDRESS = `https://tonapi.io/v2/jettons/${PX_ADDRESS}/holders?limit=${API_LIMIT}`;
-const RATE_LIMIT_DELAY = 15000; // Base delay in ms between calls
+const RATE_LIMIT_DELAY = 30000; // Base delay in ms between calls
 const MAX_RETRIES = 10; // Max retry attempts for API calls
 
 mongoose.connect(process.env.MONGO_URI, {
