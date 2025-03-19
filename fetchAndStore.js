@@ -2,36 +2,12 @@ require("dotenv").config();
 const axios = require("axios");
 const mongoose = require("mongoose");
 const Holder = require("./holderModel");
-const cron = require("node-cron");
 
 const PX_ADDRESS = "EQB420yQsZobGcy0VYDfSKHpG2QQlw-j1f_tPu1J488I__PX";
 const API_LIMIT = 1000;
 const HOLDERS_API_ADDRESS = `https://tonapi.io/v2/jettons/${PX_ADDRESS}/holders?limit=${API_LIMIT}`;
 const RATE_LIMIT_DELAY = 15000; // Base delay in ms between calls
-const { MongoClient, ServerApiVersion } = require('mongodb');
-const uri = "mongodb+srv://PxAdmin:0JAbDhvWpn3yKmYl@cluster0.hj6dj4y.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-
-const client = new MongoClient(uri, {
-    serverApi: {
-      version: ServerApiVersion.v1,
-      strict: true,
-      deprecationErrors: true,
-    }
-});
-
-async function run() {
-    try {
-      // Connect the client to the server (optional starting in v4.7)
-      await client.connect();
-      // Send a ping to confirm a successful connection
-      await client.db("admin").command({ ping: 1 });
-      console.log("Pinged your deployment. You successfully connected to MongoDB!");
-    } finally {
-      // Ensures that the client will close when you finish/error
-      await client.close();
-    }
-}
-run().catch(console.dir);
+const MAX_RETRIES = 10; // Max retry attempts for API calls
 
 mongoose.connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
@@ -41,20 +17,10 @@ const db = mongoose.connection;
 db.once("open", () => console.log("✅ Connected to MongoDB"));
 db.on("error", (err) => console.error("❌ MongoDB Connection Error:", err));
 
-// Global flag to ensure only one instance runs at a time
-let isFetching = false;
-
 const fetchAndStoreHolders = async () => {
-    if (isFetching) {
-         console.log("A fetch is already in progress. Skipping this scheduled run.");
-         return;
-    }
-    
-    isFetching = true;
     console.log("🚀 Fetching holders data...");
     let offset = 0;
     let hasMore = true;
-    const MAX_RETRIES = 10;
 
     try {
         while (hasMore) {
@@ -87,13 +53,12 @@ const fetchAndStoreHolders = async () => {
             }
 
             // Convert data into bulk update operations with computed rank
-            const bulkOps = addresses.map((h, index) => ({
+            const bulkOps = addresses.map((h) => ({
                 updateOne: {
                     filter: { address: h.address },
                     update: { 
                         $set: { 
                             balance: h.balance / (10 ** 9),
-                            rank: offset + index + 1  // Compute rank based on batch offset and index
                         }
                     },
                     upsert: true,
@@ -111,17 +76,11 @@ const fetchAndStoreHolders = async () => {
         }
     } catch (err) {
         console.error("Unexpected error in fetchAndStoreHolders:", err);
-    } finally {
-        isFetching = false;
     }
 };
 
-// Schedule the job to run every hour.
-// If a previous run is still active, the flag prevents a new instance from starting.
-cron.schedule("0 * * * *", () => {
-    console.log("⏳ Running scheduled holders update...");
-    fetchAndStoreHolders();
+// Run the function when the script is executed (Render cron job will trigger this)
+fetchAndStoreHolders().then(() => {
+    console.log("✅ Job finished. Exiting...");
+    process.exit(0); // Ensures script stops after execution
 });
-
-// Initial Fetch on Start
-fetchAndStoreHolders();
