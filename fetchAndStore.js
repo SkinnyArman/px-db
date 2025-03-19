@@ -59,12 +59,17 @@ mongoose.connect(process.env.MONGO_URI, {
             }
 
             // Convert data into bulk update operations
-            const bulkOps = addresses.map((h) => ({
-                updateOne: {
-                    filter: { address: h.address }, // Find existing holder
-                    update: { $set: { balance: h.balance } }, // Update balance
-                    upsert: true, // Insert if not exists
+            const bulkOps = addresses.map((h, index) => ({
+              updateOne: {
+                filter: { address: h.address }, // Find existing holder
+                update: { 
+                  $set: { 
+                    balance: h.balance / (10 ** 9), 
+                    rank: offset + index + 1 // Compute rank based on batch offset and index
+                  } 
                 },
+                upsert: true, // Insert if not exists
+              },
             }));
 
             // Perform bulk upsert
