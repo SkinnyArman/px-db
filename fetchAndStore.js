@@ -10,6 +10,7 @@ const API_LIMIT = 1000;
 const HOLDERS_API_ADDRESS = `https://tonapi.io/v2/jettons/${PX_ADDRESS}/holders?limit=${API_LIMIT}`;
 const RATE_LIMIT_DELAY = 30000; // Base delay in ms between calls
 const MAX_RETRIES = 10; // Max retry attempts for API calls
+const TonWeb = require("tonweb")
 
 mongoose.connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
@@ -22,6 +23,11 @@ db.on("error", (err) => console.error("❌ MongoDB Connection Error:", err));
 // Global flag to control if the job is running
 let isFetching = false;
 let cancelFetching = false;  // This flag will be used to stop the fetch process
+
+async function convertAddress(hexAddress) {
+    const address = new TonWeb.utils.Address(hexAddress);
+    return address.toString(true)
+}
 
 const fetchAndStoreHolders = async () => {
     if (isFetching) {
@@ -71,12 +77,13 @@ const fetchAndStoreHolders = async () => {
             }
 
             // Convert data into bulk update operations with computed rank
-            const bulkOps = addresses.map((h) => ({
+            const bulkOps = addresses.map(async (h) => ({
                 updateOne: {
                     filter: { address: h.address },
                     update: { 
                         $set: { 
                             balance: h.balance,
+                            base64Address: await convertAddress(h.address)
                         }
                     },
                     upsert: true,
