@@ -2,7 +2,9 @@ require("dotenv").config();
 const axios = require("axios");
 const mongoose = require("mongoose");
 const Holder = require("./holderModel");
+const express = require("express");
 
+const app = express();
 const PX_ADDRESS = "EQB420yQsZobGcy0VYDfSKHpG2QQlw-j1f_tPu1J488I__PX";
 const API_LIMIT = 1000;
 const HOLDERS_API_ADDRESS = `https://tonapi.io/v2/jettons/${PX_ADDRESS}/holders?limit=${API_LIMIT}`;
@@ -17,13 +19,29 @@ const db = mongoose.connection;
 db.once("open", () => console.log("✅ Connected to MongoDB"));
 db.on("error", (err) => console.error("❌ MongoDB Connection Error:", err));
 
+// Global flag to control if the job is running
+let isFetching = false;
+let cancelFetching = false;  // This flag will be used to stop the fetch process
+
 const fetchAndStoreHolders = async () => {
+    if (isFetching) {
+        console.log("A fetch is already in progress. Skipping this request.");
+        return;
+    }
+
+    isFetching = true;
+    cancelFetching = false;  // Reset cancel flag when starting a new fetch
     console.log("🚀 Fetching holders data...");
     let offset = 0;
     let hasMore = true;
 
     try {
         while (hasMore) {
+            if (cancelFetching) {
+                console.log("❌ Fetching process stopped.");
+                break;  // Stop the loop if cancelFetching is set to true
+            }
+
             let retries = 0;
             let success = false;
             let response;
@@ -76,11 +94,36 @@ const fetchAndStoreHolders = async () => {
         }
     } catch (err) {
         console.error("Unexpected error in fetchAndStoreHolders:", err);
+    } finally {
+        isFetching = false;
     }
 };
 
-// Run the function when the script is executed (Render cron job will trigger this)
-fetchAndStoreHolders().then(() => {
-    console.log("✅ Job finished. Exiting...");
-    process.exit(0); // Ensures script stops after execution
+// Create the "/run" endpoint to start the process
+app.get("/run", (req, res) => {
+    if (!isFetching) {
+        fetchAndStoreHolders().then(() => {
+            res.send("✅ Job started!");
+        }).catch((err) => {
+            res.status(500).send("❌ Error starting the job: " + err.message);
+        });
+    } else {
+        res.send("⚠️ The job is already running.");
+    }
+});
+
+// Create the "/stop" endpoint to stop the process
+app.get("/stop", (req, res) => {
+    if (isFetching) {
+        cancelFetching = true;  // Set the flag to true to stop the job
+        res.send("✅ Job stopped.");
+    } else {
+        res.send("⚠️ No job is currently running.");
+    }
+});
+
+// Set up the server to listen on a port (e.g., 3000)
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`✅ Web service running on port ${PORT}`);
 });
