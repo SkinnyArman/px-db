@@ -26,7 +26,7 @@ let cancelFetching = false;  // This flag will be used to stop the fetch process
 
 async function convertAddress(hexAddress) {
     const address = new TonWeb.utils.Address(hexAddress);
-    return address.toString(true)
+    return address.toString(true, true)
 }
 
 const fetchAndStoreHolders = async () => {
