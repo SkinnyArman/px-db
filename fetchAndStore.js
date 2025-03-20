@@ -76,22 +76,23 @@ const fetchAndStoreHolders = async () => {
                 break;
             }
 
-            // Convert data into bulk update operations with computed rank
-            const bulkOps = addresses.map(async (h) => ({
-                updateOne: {
-                    filter: { address: h.address },
-                    update: { 
-                        $set: { 
-                            balance: h.balance,
-                            base64Address: await convertAddress(h.address)
-                        }
-                    },
-                    upsert: true,
-                },
-            }));
-
-            // Perform bulk upsert
-            await Holder.bulkWrite(bulkOps);
+            const bulkOps = await Promise.all(
+              addresses.map(async (h) => ({
+                  updateOne: {
+                      filter: { address: h.address },
+                      update: { 
+                          $set: { 
+                              balance: h.balance,
+                              base64Address: await convertAddress(h.address)
+                          }
+                      },
+                      upsert: true,
+                  },
+              }))
+          );
+          
+          // Perform bulk upsert
+          await Holder.bulkWrite(bulkOps);
 
             offset += addresses.length;
             console.log(`✅ Updated ${addresses.length} holders, Offset: ${offset}`);
