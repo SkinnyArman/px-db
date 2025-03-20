@@ -79,11 +79,11 @@ const fetchAndStoreHolders = async () => {
             const bulkOps = await Promise.all(
               addresses.map(async (h) => ({
                   updateOne: {
-                      filter: { address: h.address },
+                      filter: { address: h.owner.address },
                       update: { 
                           $set: { 
                               balance: h.balance,
-                              base64Address: await convertAddress(h.address)
+                              base64Address: await convertAddress(h.owner.address)
                           }
                       },
                       upsert: true,
